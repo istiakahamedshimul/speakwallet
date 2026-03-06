@@ -1,0 +1,48 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+    // 1. ADDED THIS: The critical Firebase plugin
+    id "com.google.gms.google-services"
+}
+
+android {
+    namespace = "com.example.speakwallet"
+    compileSdk = 34
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = 17
+    }
+
+    defaultConfig {
+        applicationId = "com.example.speakwallet"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+
+        // 2. ADDED THIS: Prevents the app from crashing due to too many Firebase methods
+        multiDexEnabled = true
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.debug
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+// 3. ADDED THIS: The required MultiDex dependency block
+dependencies {
+    implementation 'androidx.multidex:multidex:2.0.1'
+}

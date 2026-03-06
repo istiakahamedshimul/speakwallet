@@ -1,0 +1,1 @@
+{"flutter":{"platforms":{"android":{"default":{"projectId":"speakwalletapp","appId":"1:632678552856:android:8426b80489288b22b1ba6d","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"speakwalletapp","configurations":{"android":"1:632678552856:android:8426b80489288b22b1ba6d","ios":"1:632678552856:ios:521fba89b33224a8b1ba6d"}}}}}}

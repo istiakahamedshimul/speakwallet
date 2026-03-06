@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "632678552856",
+    "firebase_url": "https://speakwalletapp-default-rtdb.firebaseio.com",
+    "project_id": "speakwalletapp",
+    "storage_bucket": "speakwalletapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:632678552856:android:8426b80489288b22b1ba6d",
+        "android_client_info": {
+          "package_name": "com.example.speakwallet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDyH1Jx82ubir-KbycIlmn69FgaLFNbrak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

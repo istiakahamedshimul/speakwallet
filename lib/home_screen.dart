@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -32,12 +33,13 @@ class _HomeScreenState extends State<HomeScreen>
 
   late final AudioRecorder _audioRecorder;
   late TabController _tabController;
-  Timer? _queueTimer;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   final ImagePicker _picker = ImagePicker();
 
   bool _isRecording = false;
   bool _isOnline = true;
   int _pendingQueueCount = 0;
+  String? _syncedHistoryUid;
 
   String _selectedFilter = '1 Month';
   final Map<String, int> _filterDays = {
@@ -58,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
-    _queueTimer?.cancel();
+    _connectivitySubscription?.cancel();
     _audioRecorder.dispose();
     _tabController.dispose();
     super.dispose();
@@ -66,8 +68,28 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _startQueueMonitor() {
     _refreshConnectionAndQueue(showProcessedMessage: true);
-    _queueTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+
+    _connectivitySubscription =
+        Connectivity().onConnectivityChanged.listen((results) {
+      final hasNetworkSignal =
+          results.any((result) => result != ConnectivityResult.none);
+
+      if (!hasNetworkSignal) {
+        _setOfflineStatus();
+        return;
+      }
+
       _refreshConnectionAndQueue(showProcessedMessage: true);
+    });
+  }
+
+  Future<void> _setOfflineStatus() async {
+    final pending = await _offlineQueue.pendingCount();
+    if (!mounted) return;
+
+    setState(() {
+      _isOnline = false;
+      _pendingQueueCount = pending;
     });
   }
 
@@ -235,6 +257,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final uid = _auth.currentUser!.uid;
+    _enableOfflineHistoryCache(uid);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F9),
@@ -374,6 +397,13 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
+  }
+
+  void _enableOfflineHistoryCache(String uid) {
+    if (_syncedHistoryUid == uid) return;
+
+    _syncedHistoryUid = uid;
+    unawaited(_rtdb.child('users/$uid/history').keepSynced(true));
   }
 
   List<Map<String, dynamic>> _readTransactions(

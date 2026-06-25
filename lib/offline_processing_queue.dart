@@ -87,7 +87,8 @@ class OfflineProcessingQueue {
 
         if (result == 'Success') {
           processed++;
-          await File(path).delete();
+          final f = File(path);
+          if (f.existsSync()) await f.delete();
         } else if (result == 'Connection Failed' || result == 'Quota Full') {
           remaining.add(item);
           remaining.addAll(items.skip(index + 1));

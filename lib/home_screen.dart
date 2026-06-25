@@ -38,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   bool _isRecording = false;
   bool _isOnline = true;
+  bool _isFlushingQueue = false;
   int _pendingQueueCount = 0;
   String? _syncedHistoryUid;
 
@@ -70,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen>
     _refreshConnectionAndQueue(showProcessedMessage: true);
 
     _connectivitySubscription =
-        Connectivity().onConnectivityChanged.listen((results) {
+        Connectivity().onConnectivityChanged.listen((results) async {
       final hasNetworkSignal =
           results.any((result) => result != ConnectivityResult.none);
 
@@ -79,7 +80,47 @@ class _HomeScreenState extends State<HomeScreen>
         return;
       }
 
-      _refreshConnectionAndQueue(showProcessedMessage: true);
+      await _flushQueueUntilEmpty();
+    });
+  }
+
+  Future<void> _flushQueueUntilEmpty() async {
+    // Keep processing until queue is empty or we lose internet
+    while (true) {
+      final online = await _offlineQueue.hasInternet();
+      if (!online) break;
+
+      final pending = await _offlineQueue.pendingCount();
+      if (pending == 0) break;
+
+      if (!mounted) return;
+      setState(() {
+        _isOnline = true;
+        _isFlushingQueue = true;
+        _pendingQueueCount = pending;
+      });
+
+      final result = await _offlineQueue.processPending(_dbService);
+
+      if (!mounted) return;
+      setState(() {
+        _pendingQueueCount = result.remaining;
+        _isFlushingQueue = result.remaining > 0;
+      });
+
+      if (result.processed == 0) break; // nothing moved, stop to avoid loop
+
+      if (result.remaining == 0) {
+        _showStatus("All queued files processed successfully.", Colors.teal);
+        break;
+      }
+    }
+
+    if (!mounted) return;
+    final finalPending = await _offlineQueue.pendingCount();
+    setState(() {
+      _isFlushingQueue = false;
+      _pendingQueueCount = finalPending;
     });
   }
 
@@ -97,10 +138,13 @@ class _HomeScreenState extends State<HomeScreen>
     bool showProcessedMessage = false,
   }) async {
     final online = await _offlineQueue.hasInternet();
-    OfflineProcessingResult? result;
 
     if (online) {
-      result = await _offlineQueue.processPending(_dbService);
+      final pending = await _offlineQueue.pendingCount();
+      if (pending > 0) {
+        await _flushQueueUntilEmpty();
+        return;
+      }
     }
 
     final pending = await _offlineQueue.pendingCount();
@@ -108,15 +152,9 @@ class _HomeScreenState extends State<HomeScreen>
 
     setState(() {
       _isOnline = online;
+      _isFlushingQueue = false;
       _pendingQueueCount = pending;
     });
-
-    if (showProcessedMessage && result != null && result.processed > 0) {
-      _showStatus(
-        "${result.processed} offline file(s) processed successfully.",
-        Colors.teal,
-      );
-    }
   }
 
   Future<void> _startRecording() async {
@@ -671,15 +709,17 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildConnectionBanner() {
-    if (_isOnline && _pendingQueueCount == 0) return const SizedBox.shrink();
+    if (_isOnline && _pendingQueueCount == 0 && !_isFlushingQueue) return const SizedBox.shrink();
 
     final offline = !_isOnline;
-    final color = offline ? Colors.orange : Colors.teal;
+    final color = offline ? Colors.orange : Colors.blue;
     final message = offline
         ? _pendingQueueCount > 0
-            ? "Offline. $_pendingQueueCount file(s) waiting to process."
+            ? "Offline. $_pendingQueueCount file(s) queued, will send when online."
             : "Offline. You can view saved data on this device."
-        : "$_pendingQueueCount file(s) waiting to process.";
+        : _isFlushingQueue
+            ? "Uploading $_pendingQueueCount queued file(s)..."
+            : "$_pendingQueueCount file(s) pending upload.";
 
     return Container(
       width: double.infinity,
